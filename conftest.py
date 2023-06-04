@@ -1,3 +1,7 @@
+# this is a hack to monkey patch pytest so it handles tests inside namespace packages without __init__.py properly
+# without it, pytest can't discover the package root for some reason
+# also see https://github.com/karlicoss/pytest_namespace_pkgs for more
+
 import pathlib
 from typing import Optional
 
@@ -16,11 +20,7 @@ namespace_pkg_dirs = [str(d) for d in root_dir.iterdir() if d.is_dir()]
 # takes a full abs path to the test file and needs to return the path to the 'root' package on the filesystem
 resolve_pkg_path_orig = _pytest.pathlib.resolve_package_path
 def resolve_package_path(path: pathlib.Path) -> Optional[pathlib.Path]:
-    result = resolve_pkg_path_orig(path)
-    if result is not None and result.is_absolute():
-        return result
-    if result is None:
-        result = path  # let's search from the current directory upwards
+    result = path  # search from the test file upwards
     for parent in result.parents:
         if str(parent) in namespace_pkg_dirs:
             return parent
@@ -28,6 +28,10 @@ def resolve_package_path(path: pathlib.Path) -> Optional[pathlib.Path]:
 _pytest.pathlib.resolve_package_path = resolve_package_path
 
 
+# without patching, the orig function returns just a package name for some reason
+# (I think it's used as a sort of fallback)
+# so we need to point it at the absolute path properly
+# not sure what are the consequences.. maybe it wouldn't be able to run against installed packages? not sure..
 search_pypath_orig = _pytest.main.search_pypath
 def search_pypath(module_name: str) -> str:
     return str(root_dir)

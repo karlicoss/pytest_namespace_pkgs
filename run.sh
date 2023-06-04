@@ -37,7 +37,7 @@ function via_importlib {
 
 # with __init__.py most of these ways work (the last one is still weird, why does it pick up src?)
 touch src/mypackage/__init__.py
-# echo "with __init__.py"
+echo "with __init__.py"
 via_src_dir     # passes
 pyargs_package  # passes
 pyargs_module   # passes
