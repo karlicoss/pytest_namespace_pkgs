@@ -1,61 +1,97 @@
 #!/bin/bash
-set -u
+set -eu
 
 cd "$(dirname "$0")"
 
 
 rm -f src/mypackage/__init__.py
-# this is how 'normal' python runtime handles namespace packages without __init__.py
-PYTHONPATH=src python3 -c 'import mypackage.test_mymodule'
-# MY NAME IS mypackage.test_mymodule
-# MY NAME IS mypackage.mymodule
+
+
+### this is how 'normal' python runtime handles namespace packages without __init__.py
+PYTHONPATH=src python3 -c 'import mypackage.test_mymodule as M; M.test()'
+# should result in
+# MY NAME IS mypackage mypackage.test_mymodule
+# MY NAME IS mypackage mypackage.mymodule
+
+PYTHONPATH=src python3 -c 'import mypackage.tests.test_mymodule2 as M; M.test()'
+# should result in
+# MY NAME IS mypackage.tests mypackage.tests.test_mymodule2
+# MY NAME IS mypackage mypackage.mymodule
+###
+
+
+function _pytest() {
+    _PYTEST='pytest'  # stable version
+    # _PYTEST='git+https://github.com/karlicoss/pytest@pyargs-namespace-packages'
+    uv run --with="$_PYTEST" -m pytest -rap "$@"
+}
 
 function via_src_dir() {
-    echo "----------------- pytest src"
-                            pytest src
+    # we only collect here, because collecting as files is inherently going to mess up package names
+    # e.g. it can contain or not contain src. at the start depending on whether we used -m pytest or 'pytest' command
+    echo; echo;
+    echo "-----------------  pytest --collect-only src"
+                            _pytest --collect-only src
 }
 
 # this is the one I'm really keen to get working
 # TODO also try against installed package, without PYTHONPATH=src?
 function pyargs_package() {
-    echo "----------------- PYTHONPATH=src pytest --pyargs mypackage"
-                            PYTHONPATH=src pytest --pyargs mypackage
+    echo; echo;
+    echo "----------------- PYTHONPATH=src  pytest --pyargs mypackage"
+                            PYTHONPATH=src _pytest --pyargs mypackage
+}
+
+function pyargs_subpackage() {
+    echo; echo;
+    echo "----------------- PYTHONPATH=src  pytest --pyargs mypackage.tests"
+                            PYTHONPATH=src _pytest --pyargs mypackage.tests
 }
 
 function pyargs_module {
-    echo "----------------- PYTHONPATH=src pytest --pyargs mypackage.test_mymodule"
-                            PYTHONPATH=src pytest --pyargs mypackage.test_mymodule
+    echo; echo;
+    echo "----------------- PYTHONPATH=src  pytest --pyargs mypackage.test_mymodule"
+                            PYTHONPATH=src _pytest --pyargs mypackage.test_mymodule
 }
 
 
-function via_importlib {
+function pyargs_module_via_importlib {
     # more of a desperate attempt -- the docs are saying "test modules are non-importable by each other"
-    echo "----------------- PYTHONPATH=src pytest --import-mode=importlib --pyargs mypackage.test_mymodule"
-                            PYTHONPATH=src pytest --import-mode=importlib --pyargs mypackage.test_mymodule
+    echo; echo;
+    echo "----------------- PYTHONPATH=src  pytest --import-mode=importlib --pyargs mypackage.test_mymodule"
+                            PYTHONPATH=src _pytest --import-mode=importlib --pyargs mypackage.test_mymodule
 }
 
 
-# with __init__.py most of these ways work (the last one is still weird, why does it pick up src?)
+## NOTE: for these checks, we need consider_namespace_packages = true set, otherwise everything is a bit fucked
+
+## with __init__.py and no conftest customizations, these work:
 touch src/mypackage/__init__.py
 echo "with __init__.py"
-via_src_dir     # passes
-pyargs_package  # passes
-pyargs_module   # passes
-# via_importlib   # fails, "No module named 'src.mypackage'"
+via_src_dir                  # should collect 3 tests
+pyargs_module                # should run 1 test
+pyargs_module_via_importlib  # should run 1 test
+pyargs_package               # should run 3 tests
 
-# without __init__.py, none of this works; unless we apply conftest patches
 rm -f src/mypackage/__init__.py
 echo "without __init__.py"
-via_src_dir    # fails, "attempted relative import with no known parent package"
-pyargs_package # fails, "module or package not found: mypackage (missing __init__.py?)"
-pyargs_module  # fails, "attempted relative import with no known parent package"
-#via_importlib  # fails, "No module named 'src.mypackage'"
 
+## without __init__.py some of these work:
+via_src_dir                  # should collect 3 tests
+pyargs_module                # should run 1 test . When fails, "attempted relative import with no known parent package"
+pyargs_module_via_importlib  # should run 1 test . When fails, "No module named 'src.mypackage'"
+##
+
+
+### now, what doesn't work (unless we apply conftest patch or https://github.com/pytest-dev/pytest/pull/13426)
+pyargs_package               # should run 3 tests. When fails, "module or package not found: mypackage (missing __init__.py?)"
+pyargs_subpackage            # should run 1 test . When fails, "module or package not found: mypackage.tests (missing __init__.py?)"
 
 
 # possibly relevant issues
 # - https://github.com/pytest-dev/pytest/issues/5147
 # - https://github.com/pytest-dev/pytest/issues/2371
+# - TODO hopefully this gets merged! https://github.com/pytest-dev/pytest/pull/13426
 
 # this is sort of relevant
 # https://docs.pytest.org/en/latest/explanation/pythonpath.html#standalone-test-modules-conftest-py-files

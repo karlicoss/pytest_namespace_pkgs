@@ -1,1 +1,1 @@
-print("MY NAME IS", __name__)
+print("MY NAME IS", __package__, __name__)

@@ -1,5 +1,6 @@
-print("MY NAME IS", __name__)
+print("MY NAME IS", __package__, __name__)
 from . import mymodule
 
-def test_name():
+def test() -> None:
+    assert __package__ == 'mypackage'
     assert __name__ == 'mypackage.test_mymodule'
