@@ -30,8 +30,8 @@ def resolve_package_path(path: pathlib.Path) -> Optional[pathlib.Path]:
         if path.name == 'conftest.py':
             return resolve_pkg_path_orig(path)
     raise RuntimeError("Couldn't determine path for ", path)
-# FIXME maybe don't even need this anymore due to consider_namespace_packages = true?
-_pytest.pathlib.resolve_package_path = resolve_package_path
+# ok, seems like don't even need this anymore due to consider_namespace_packages = true?
+#_pytest.pathlib.resolve_package_path = resolve_package_path
 
 
 # without patching, the orig function returns just a package name for some reason

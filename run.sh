@@ -23,33 +23,33 @@ PYTHONPATH=src python3 -c 'import mypackage.tests.test_mymodule2 as M; M.test()'
 function _pytest() {
     _PYTEST='pytest'  # stable version
     # _PYTEST='git+https://github.com/karlicoss/pytest@pyargs-namespace-packages'
-    uv run --with="$_PYTEST" -m pytest -rap "$@"
+    PYTHONSAFEPATH=1 uv run --with="$_PYTEST" -m pytest -rap -s "$@"
 }
 
 function via_src_dir() {
     # we only collect here, because collecting as files is inherently going to mess up package names
     # e.g. it can contain or not contain src. at the start depending on whether we used -m pytest or 'pytest' command
-    echo; echo;
-    echo "-----------------  pytest --collect-only src"
-                            _pytest --collect-only src
+    echo; echo; echo; echo;
+    echo "----------------- PYTHONPATH=src  pytest --collect-only src"
+                            PYTHONPATH=src _pytest --collect-only src
 }
 
 # this is the one I'm really keen to get working
 # TODO also try against installed package, without PYTHONPATH=src?
 function pyargs_package() {
-    echo; echo;
+    echo; echo; echo; echo;
     echo "----------------- PYTHONPATH=src  pytest --pyargs mypackage"
                             PYTHONPATH=src _pytest --pyargs mypackage
 }
 
 function pyargs_subpackage() {
-    echo; echo;
+    echo; echo; echo; echo;
     echo "----------------- PYTHONPATH=src  pytest --pyargs mypackage.tests"
                             PYTHONPATH=src _pytest --pyargs mypackage.tests
 }
 
 function pyargs_module {
-    echo; echo;
+    echo; echo; echo; echo;
     echo "----------------- PYTHONPATH=src  pytest --pyargs mypackage.test_mymodule"
                             PYTHONPATH=src _pytest --pyargs mypackage.test_mymodule
 }
@@ -57,7 +57,7 @@ function pyargs_module {
 
 function pyargs_module_via_importlib {
     # more of a desperate attempt -- the docs are saying "test modules are non-importable by each other"
-    echo; echo;
+    echo; echo; echo; echo;
     echo "----------------- PYTHONPATH=src  pytest --import-mode=importlib --pyargs mypackage.test_mymodule"
                             PYTHONPATH=src _pytest --import-mode=importlib --pyargs mypackage.test_mymodule
 }
@@ -87,6 +87,7 @@ pyargs_module_via_importlib  # should run 1 test . When fails, "No module named 
 pyargs_package               # should run 3 tests. When fails, "module or package not found: mypackage (missing __init__.py?)"
 pyargs_subpackage            # should run 1 test . When fails, "module or package not found: mypackage.tests (missing __init__.py?)"
 
+# NOTE: seems like all of these work fine with importlib mode too?
 
 # possibly relevant issues
 # - https://github.com/pytest-dev/pytest/issues/5147
